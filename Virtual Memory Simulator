@@ -1,0 +1,103 @@
+#include <iostream>
+#include <unordered_map>
+#include <list>
+#include <iterator>
+
+using namespace std;
+
+// Define a Page Table Entry structure
+struct PageTableEntry {
+    bool valid;         // Flag indicating if the page is currently in memory
+    int frameNumber;    // Physical frame number where the page is stored
+};
+
+// Define a Virtual Memory Manager class
+class VirtualMemoryManager {
+private:
+    unordered_map<int, PageTableEntry> pageTable;   // Page Table to map virtual addresses to physical frames
+    list<int> pageList;                             // List to maintain LRU order of pages in memory
+    int numFrames;                                  // Total number of physical frames available
+    int pageFaults;                                 // Counter for page faults
+
+public:
+    VirtualMemoryManager(int frames) : numFrames(frames), pageFaults(0) {}
+
+    // Simulate memory access for a virtual address
+    void accessMemory(int virtualAddress) {
+        int pageNum = virtualAddress / 4096;  // Assume page size of 4096 bytes
+
+        if (pageTable.find(pageNum) == pageTable.end() || !pageTable[pageNum].valid) {
+            handlePageFault(pageNum);
+        } else {
+            updatePageLRU(pageNum);
+        }
+    }
+
+    // Handle a page fault (page is not in memory)
+    void handlePageFault(int pageNum) {
+        cout << "Page fault for page " << pageNum << endl;
+        pageFaults++;
+
+        // Simulate loading the page into memory (using demand paging)
+        if (pageList.size() < numFrames) {
+            // Memory is not full, allocate a new frame for the page
+            PageTableEntry newEntry = {true, static_cast<int>(pageList.size())};
+            pageTable[pageNum] = newEntry;
+            pageList.push_back(pageNum);
+        } else {
+            // Memory is full, perform page replacement using LRU algorithm
+            int victimPage = pageList.front();
+            pageList.pop_front();
+
+            // Invalidate the victim page
+            pageTable[victimPage].valid = false;
+
+            // Allocate a new frame for the faulting page
+            PageTableEntry newEntry = {true, pageTable[victimPage].frameNumber};
+            pageTable[pageNum] = newEntry;
+            pageList.push_back(pageNum);
+        }
+    }
+
+    // Update the LRU list when a page is accessed
+    void updatePageLRU(int pageNum) {
+        // Move the accessed page to the end of the list (most recently used)
+        pageList.remove(pageNum);
+        pageList.push_back(pageNum);
+    }
+
+    // Print the number of page faults and final state of the page table
+    void printStats() {
+        cout << "Total page faults: " << pageFaults << endl;
+        cout << "Final Page Table:" << endl;
+        for (const auto& entry : pageTable) {
+            cout << "Page " << entry.first << ": Frame " << entry.second.frameNumber;
+            if (entry.second.valid) {
+                cout << " (Valid)" << endl;
+            } else {
+                cout << " (Invalid)" << endl;
+            }
+        }
+    }
+};
+
+// Main function to test the virtual memory manager
+int main() {
+    // Create a virtual memory manager with 4 physical frames
+    VirtualMemoryManager vmm(4);
+
+    // Simulate memory accesses with virtual addresses
+    vmm.accessMemory(0);
+    vmm.accessMemory(4096);
+    vmm.accessMemory(8192);
+    vmm.accessMemory(12288);
+    vmm.accessMemory(4096);
+    vmm.accessMemory(16384);
+    vmm.accessMemory(20480);
+    vmm.accessMemory(8192);
+
+    // Print statistics and final page table state
+    vmm.printStats();
+
+    return 0;
+}
